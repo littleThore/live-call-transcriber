@@ -1,0 +1,5 @@
+transcripts/
+dist/
+default-args.txt
+__pycache__/
+*.pyc

@@ -1,0 +1,4 @@
+# Options used when LiveCallTranscriber.exe is started without arguments.
+# Copy this file to default-args.txt (next to the exe) and edit it.
+# Example: Discord plays through a headset "Voice" output instead of the Windows default.
+--call-device "A50 Voice"

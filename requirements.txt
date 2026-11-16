@@ -1,0 +1,8 @@
+faster-whisper==1.2.1
+sherpa-onnx==2.0.1
+pyaudiowpatch
+scipy
+numpy
+# NVIDIA GPU only:
+nvidia-cublas-cu12
+nvidia-cudnn-cu12==9.*
