@@ -2,6 +2,8 @@
 
 Writes down a voice call (Discord, Teams, anything) live, on your own PC. Nothing is uploaded.
 
+![Live Call Transcriber window](docs/screenshot.png)
+
 - **Me**: your microphone
 - **Call**: everything your PC plays (WASAPI loopback of an output device)
 
@@ -28,8 +30,11 @@ Note: in many countries (e.g. Germany, §201 StGB) transcribing others without t
 ## Download and run (Windows 10/11, 64-bit)
 
 1. Download `LiveCallTranscriber.exe` from [Releases](../../releases/latest).
-2. Put it in its own folder and double-click it. Transcripts are saved to a `transcripts` folder next to the exe.
-3. Stop with **Ctrl+C**.
+2. Put it in its own folder and double-click it. A window opens.
+3. Pick **Call audio** (the device Discord plays through) and **Your microphone**. The level meters move when a device carries sound, so you can see which one is right. Then press **Start**.
+4. **Stop** saves the transcript to a `transcripts` folder next to the exe. **Send to Claude Code** / **Copy** share it.
+
+The window remembers your devices. Started with arguments from a terminal (e.g. `LiveCallTranscriber.exe --call-device "A50 Voice"`), it runs in console mode instead; stop it with **Ctrl+C**.
 
 The first start sets everything up by itself in `%LOCALAPPDATA%\LiveCallTranscriber` and takes a few minutes:
 
@@ -49,7 +54,7 @@ LiveCallTranscriber.exe --list-devices
 LiveCallTranscriber.exe --call-device "A50 Voice"
 ```
 
-To save your options for double-clicking, create `default-args.txt` next to the exe (see `default-args.example.txt`). It is only used when the exe is started without arguments.
+In the window you just pick the devices from the dropdowns (**↻ Devices** reloads the list after plugging something in). The options below are for console mode. `default-args.txt` next to the exe (see `default-args.example.txt`) is applied on double-click, e.g. to preselect a device or set `--model`.
 
 | Option | |
 |---|---|
@@ -79,7 +84,7 @@ Headphones work best. With speakers, your mic also picks up the call, so call li
 build.cmd
 ```
 
-This uses the C# compiler that ships with Windows and writes `dist\LiveCallTranscriber.exe`. The launcher (`launcher/Launcher.cs`) embeds `live_transcribe.py` and, on first start, downloads [uv](https://github.com/astral-sh/uv), creates a Python 3.11 environment and installs `faster-whisper`, `pyaudiowpatch`, `scipy` and `numpy` (plus `nvidia-cublas-cu12` and `nvidia-cudnn-cu12` on NVIDIA PCs).
+This uses the C# compiler that ships with Windows and writes `dist\LiveCallTranscriber.exe`. The launcher (`launcher/Launcher.cs`) embeds `live_transcribe.py` + `gui.py` (Tk window) and, on first start, downloads [uv](https://github.com/astral-sh/uv), creates a Python 3.11 environment and installs `faster-whisper`, `pyaudiowpatch`, `scipy` and `numpy` (plus `nvidia-cublas-cu12` and `nvidia-cudnn-cu12` on NVIDIA PCs).
 
 To run the script directly in your own Python 3.11 environment instead:
 

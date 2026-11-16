@@ -26,7 +26,7 @@ class Launcher
         int code = 1;
         try { code = Run(args); }
         catch (Exception e) { Console.WriteLine(); Console.WriteLine("ERROR: " + e.Message); }
-        if (!Console.IsInputRedirected && Environment.GetEnvironmentVariable("LIVE_TRANSCRIBER_NOPAUSE") == null)
+        if (!noPause && !Console.IsInputRedirected && Environment.GetEnvironmentVariable("LIVE_TRANSCRIBER_NOPAUSE") == null)
         {
             Console.WriteLine();
             Console.Write("Press any key to close ...");
@@ -51,9 +51,16 @@ class Launcher
         string python = EnsureEnvironment();
 
         string script = Path.Combine(home, "live_transcribe.py");
-        using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("live_transcribe.py"))
-        using (FileStream f = File.Create(script)) s.CopyTo(f);
+        Assembly asm = Assembly.GetExecutingAssembly();
+        foreach (string res in asm.GetManifestResourceNames())
+        {
+            if (!res.EndsWith(".py")) continue;
+            using (Stream s = asm.GetManifestResourceStream(res))
+            using (FileStream f = File.Create(Path.Combine(home, res))) s.CopyTo(f);
+        }
 
+        // Double-click (no arguments) opens the window; arguments keep the console mode.
+        bool gui = args.Length == 0;
         List<string> argv = new List<string>(args);
         string defaults = Path.Combine(exeDir, "default-args.txt");
         if (argv.Count == 0 && File.Exists(defaults))
@@ -70,9 +77,47 @@ class Launcher
             argv.Add(Path.Combine(exeDir, "transcripts"));
         }
 
+        if (gui) argv.Add("--gui");
+
         StringBuilder cmd = new StringBuilder("-u " + Quote(script));
         foreach (string a in argv) cmd.Append(' ').Append(Quote(a));
-        return Exec(python, cmd.ToString(), false);
+        if (!gui) return Exec(python, cmd.ToString(), false);
+
+        string pythonw = Path.Combine(Path.GetDirectoryName(python), "pythonw.exe");
+        if (!File.Exists(pythonw)) pythonw = python;
+        Process p = Start(pythonw, cmd.ToString(), true);
+        // Stay a moment so an early crash is shown instead of silently vanishing.
+        if (p.WaitForExit(5000) && p.ExitCode != 0)
+        {
+            Console.WriteLine("The window failed to start (exit " + p.ExitCode + "). Last log lines:");
+            string log = Path.Combine(home, "gui.log");
+            if (File.Exists(log))
+            {
+                string[] lines = File.ReadAllLines(log);
+                for (int i = Math.Max(0, lines.Length - 15); i < lines.Length; i++) Console.WriteLine(lines[i]);
+            }
+            return p.ExitCode;
+        }
+        noPause = true;
+        return 0;
+    }
+
+    static bool noPause;
+
+    static Process Start(string exe, string arguments, bool noWindow)
+    {
+        ProcessStartInfo psi = new ProcessStartInfo(exe, arguments);
+        psi.UseShellExecute = false;
+        psi.CreateNoWindow = noWindow;
+        psi.EnvironmentVariables["PYTHONUTF8"] = "1";
+        psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+        psi.EnvironmentVariables["HF_HUB_DISABLE_SYMLINKS"] = "1";
+        psi.EnvironmentVariables["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1";
+        psi.EnvironmentVariables["HF_HUB_DISABLE_PROGRESS_BARS"] = noWindow ? "1" : "0";
+        psi.EnvironmentVariables["UV_PYTHON_INSTALL_DIR"] = Path.Combine(home, "python");
+        psi.EnvironmentVariables["UV_CACHE_DIR"] = Path.Combine(home, "uv-cache");
+        psi.EnvironmentVariables["UV_LINK_MODE"] = "copy";
+        return Process.Start(psi);
     }
 
     static string EnsureEnvironment()
@@ -132,16 +177,7 @@ class Launcher
 
     static int Exec(string exe, string arguments, bool mustSucceed)
     {
-        ProcessStartInfo psi = new ProcessStartInfo(exe, arguments);
-        psi.UseShellExecute = false;
-        psi.EnvironmentVariables["PYTHONUTF8"] = "1";
-        psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
-        psi.EnvironmentVariables["HF_HUB_DISABLE_SYMLINKS"] = "1";
-        psi.EnvironmentVariables["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1";
-        psi.EnvironmentVariables["UV_PYTHON_INSTALL_DIR"] = Path.Combine(home, "python");
-        psi.EnvironmentVariables["UV_CACHE_DIR"] = Path.Combine(home, "uv-cache");
-        psi.EnvironmentVariables["UV_LINK_MODE"] = "copy";
-        using (Process p = Process.Start(psi))
+        using (Process p = Start(exe, arguments, false))
         {
             p.WaitForExit();
             if (mustSucceed && p.ExitCode != 0)

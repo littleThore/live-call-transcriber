@@ -3,3 +3,6 @@ dist/
 default-args.txt
 __pycache__/
 *.pyc
+models/
+settings.json
+gui.log

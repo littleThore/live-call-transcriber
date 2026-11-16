@@ -94,7 +94,7 @@ def log(msg):
 class Capture:
     """One PyAudio input stream -> 16 kHz mono float32 frames on a queue."""
 
-    def __init__(self, pa, label, dev):
+    def __init__(self, pa, label, dev, recording=True):
         self.label = label
         self.dev = dev
         self.rate = int(dev["defaultSampleRate"])
@@ -102,6 +102,8 @@ class Capture:
         g = math.gcd(SR, self.rate)
         self.up, self.down = SR // g, self.rate // g
         self.q = queue.Queue()
+        self.recording = recording  # False = only meter the level (UI preview), nothing is queued
+        self.peak = 0.0
         self.stream = pa.open(
             format=pyaudio.paInt16, channels=self.ch, rate=self.rate, input=True,
             input_device_index=dev["index"], frames_per_buffer=int(self.rate * 0.05),
@@ -109,8 +111,16 @@ class Capture:
         )
 
     def _cb(self, data, frames, info, status):
-        self.q.put(data)
+        x = np.frombuffer(data, dtype=np.int16)
+        if len(x):
+            self.peak = max(self.peak, float(np.abs(x).max()) / 32768.0)
+        if self.recording:
+            self.q.put(data)
         return (None, pyaudio.paContinue)
+
+    def take_peak(self):
+        p, self.peak = self.peak, 0.0
+        return p
 
     def to16k(self, data):
         x = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768.0
@@ -254,12 +264,13 @@ class Speakers:
 
 
 class Transcriber(threading.Thread):
-    def __init__(self, model, in_q, out_path, lang, langs, idle, speakers=None):
+    def __init__(self, model, in_q, out_path, lang, langs, idle, speakers=None, on_line=None):
         super().__init__(daemon=True)
         self.model, self.in_q, self.out_path = model, in_q, out_path
         self.lang, self.langs, self.idle = lang, langs, idle
         self.speakers = speakers
         self.last_spk = None
+        self.on_line = on_line  # UI hook: on_line(stamp, who, lang, text, seconds_behind)
 
     def pick_lang(self, audio):
         if self.lang:
@@ -325,7 +336,10 @@ class Transcriber(threading.Thread):
         lag = f"   [{behind:.0f}s behind]" if behind > 15 else ""
         for who, start, text in lines:
             stamp = dt.datetime.fromtimestamp(t0 + start).strftime("%H:%M:%S")
-            print(f"[{stamp}] {who} ({lang_tag}): {text}{lag}", flush=True)
+            if self.on_line:
+                self.on_line(stamp, who, lang_tag, text, behind)
+            else:
+                print(f"[{stamp}] {who} ({lang_tag}): {text}{lag}", flush=True)
             with open(self.out_path, "a", encoding="utf-8") as fh:
                 fh.write(f"- `{stamp}` **{who}** ({lang_tag}): {text}\n")
 
@@ -361,9 +375,14 @@ def main():
     ap.add_argument("--no-send-menu", action="store_true", help="don't offer to send/copy the transcript at the end")
     ap.add_argument("--send", metavar="TRANSCRIPT", help="don't record: open the send/copy menu for an existing transcript")
     ap.add_argument("--debug", action="store_true", help="print levels and chunk sizes")
+    ap.add_argument("--gui", action="store_true", help="open the window (default when the exe is double-clicked)")
     a = ap.parse_args()
     global DEBUG
     DEBUG = a.debug
+    if a.gui:
+        import gui
+        gui.run(a)
+        return
     if a.send:
         share_menu(a.send)
         return
