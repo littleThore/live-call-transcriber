@@ -38,11 +38,6 @@ SR = 16000
 FRAME = 480  # 30 ms at 16 kHz
 APP_DIR = Path(__file__).resolve().parent
 
-CONSENT = ("REMINDER: Everyone in this call must agree to being transcribed before you continue "
-           "(Germany: recording/transcribing non-public speech without consent is a crime, §201 StGB).\n"
-           "HINWEIS: Alle im Call müssen zustimmen, dass mitgeschrieben wird, bevor du startest "
-           "(Aufnehmen/Transkribieren ohne Einwilligung ist nach §201 StGB strafbar).")
-
 
 def add_cuda_dll_dirs():
     """Make the pip 'nvidia-*-cu12' DLLs (cuBLAS, cuDNN) visible to ctranslate2. Returns True if found."""
@@ -358,7 +353,7 @@ def main():
     ap.add_argument("--max-chunk", type=float, default=12.0, help="max chunk length in seconds")
     ap.add_argument("--out", help="transcript path (default transcripts/discord-YYYY-MM-DD-HHMM.md)")
     ap.add_argument("--duration", type=float, help="stop after N seconds (testing)")
-    ap.add_argument("--yes", action="store_true", help="skip the Enter confirmation after the consent reminder")
+    ap.add_argument("--yes", action="store_true", help=argparse.SUPPRESS)  # no-op, kept for old command lines
     ap.add_argument("--list-devices", action="store_true")
     ap.add_argument("--no-speakers", action="store_true", help="label all call audio as 'Call' (no voice separation)")
     ap.add_argument("--speaker-threshold", type=float, default=0.6,
@@ -389,15 +384,7 @@ def main():
             log(f"  {d['name']}")
         return
 
-    # Consent reminder comes before any audio device is opened.
     log("")
-    log(CONSENT)
-    if not a.yes:
-        try:
-            input("Press Enter once everyone has agreed (Ctrl+C to cancel) ... ")
-        except (KeyboardInterrupt, EOFError):
-            log("Cancelled, nothing recorded.")
-            return
 
     call_dev = mic_dev = None
     if not a.no_call:
@@ -590,7 +577,7 @@ def share_menu(path):
     log("  [c] copy to clipboard (paste into any chat)")
     log("  [Enter] nothing, just keep the file")
     if sessions or claude_exe():
-        log("  (Sending uploads the transcript to Claude/Anthropic. Only do it if everyone in the call is OK with that.)")
+        log("  (Sending uploads the transcript to Claude/Anthropic.)")
     choice = input("> ").strip().lower()
     if not choice:
         return

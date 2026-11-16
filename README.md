@@ -21,11 +21,9 @@ German and English are detected automatically per chunk.
 - start a **new Claude Code chat** with it,
 - or **copy it to the clipboard** to paste anywhere (ChatGPT, Discord, Notion, …).
 
-Sending uploads the transcript to Anthropic. Only do it if everyone in the call is fine with that. To open the menu again later for an old transcript: `LiveCallTranscriber.exe --send transcripts\call-….md`.
+Sending uploads the transcript to Anthropic. To open the menu again later for an old transcript: `LiveCallTranscriber.exe --send transcripts\call-….md`.
 
-## ⚠️ Consent first
-
-**Everyone in the call must agree before you transcribe it.** In Germany, recording or transcribing someone's non-public speech without consent is a criminal offence (§201 StGB), and many other countries have similar laws. The tool reminds you and waits for Enter before it opens any audio device.
+Note: in many countries (e.g. Germany, §201 StGB) transcribing others without their consent is illegal; you are responsible for how you use this.
 
 ## Download and run (Windows 10/11, 64-bit)
 
