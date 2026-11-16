@@ -91,6 +91,28 @@ def log(msg):
     print(msg, flush=True)
 
 
+def collapse_repeats(text, max_n=12):
+    """Cut a phrase that repeats back-to-back 3+ times down to one copy (Whisper repetition loops)."""
+    words = text.split()
+    out, i = [], 0
+    while i < len(words):
+        for n in range(max_n, 0, -1):
+            chunk = words[i:i + n]
+            if len(chunk) < n:
+                continue
+            reps = 1
+            while words[i + reps * n:i + (reps + 1) * n] == chunk:
+                reps += 1
+            if reps >= 3:
+                out.extend(chunk)
+                i += reps * n
+                break
+        else:
+            out.append(words[i])
+            i += 1
+    return " ".join(out)
+
+
 class Capture:
     """One PyAudio input stream -> 16 kHz mono float32 frames on a queue."""
 
@@ -315,6 +337,10 @@ class Transcriber(threading.Thread):
                 continue
             if s.no_speech_prob > 0.6 and s.avg_logprob < -0.8:
                 continue
+            if s.compression_ratio > 2.4:  # Whisper stuck in a loop ("... math ... math ... math")
+                t = collapse_repeats(t)
+                if not t:
+                    continue
             if HALLU_RE.search(t):
                 continue
             who = label
